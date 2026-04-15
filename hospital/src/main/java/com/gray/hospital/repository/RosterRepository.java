@@ -13,6 +13,8 @@ public interface RosterRepository extends JpaRepository<Roster, Long> {
 
     List<Roster> findByDateBetween(LocalDate startDate, LocalDate endDate);
 
+    List<Roster> findByDoctorDoctorIdAndDateBetween(Long doctorId, LocalDate startDate, LocalDate endDate);
+
     Optional<Roster> findByDoctorDoctorIdAndDate(Long doctorId, LocalDate date);
 
     boolean existsByDoctorDoctorIdAndDate(Long doctorId, LocalDate date);

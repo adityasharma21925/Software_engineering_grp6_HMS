@@ -37,6 +37,9 @@ class RosterServiceTest {
     @Mock
     private NurseRepository nurseRepository;
 
+    @Mock
+    private RosterPublicationService rosterPublicationService;
+
     @InjectMocks
     private RosterService rosterService;
 
@@ -66,7 +69,7 @@ class RosterServiceTest {
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> rosterService.addRoster(1L, 2L, LocalDate.parse("2026-04-15"), "10:00", "17:00"));
 
-        assertEquals("Doctor roster must start at 09:00", exception.getMessage());
+        assertEquals("Regular doctor roster must be 09:00-17:00 or 20:00-08:00", exception.getMessage());
     }
 
     @Test

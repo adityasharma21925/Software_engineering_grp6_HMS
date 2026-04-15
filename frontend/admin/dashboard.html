@@ -38,18 +38,18 @@ function logout() {
 <section class="hero-grid">
     <article class="hero-card">
         <p class="hero-label">Consultation Shift</p>
-        <h2>09:00 to 17:00</h2>
-        <p>Doctor rosters use fixed 1-hour patient slots.</p>
+        <h2>Day, Night, Visiting</h2>
+        <p>Regular doctors can be rostered for day or night coverage, and visiting consultants use 2-hour daytime slots.</p>
     </article>
     <article class="hero-card">
         <p class="hero-label">Roster Rule</p>
-        <h2>One Doctor / One Room</h2>
-        <p>The backend rejects duplicate doctor-day or room-day assignments.</p>
+        <h2>Coverage Checked Weekly</h2>
+        <p>The backend validates daytime coverage, night coverage, and visiting consultant frequency.</p>
     </article>
     <article class="hero-card">
-        <p class="hero-label">Payments</p>
-        <h2>Tracked in Backend</h2>
-        <p>Appointments, cabins, and payslips feed admin reporting.</p>
+        <p class="hero-label">Publication</p>
+        <h2>Simulated Website Upload</h2>
+        <p>Each roster change republishes the weekly roster snapshot and queues doctor email notifications.</p>
     </article>
 </section>
 
@@ -195,14 +195,25 @@ function logout() {
                 <div class="panel-header">
                     <div>
                         <p class="eyebrow">Roster</p>
-                        <h3>Create Standard Doctor Roster</h3>
+                        <h3>Create Doctor Roster</h3>
                     </div>
                 </div>
-                <p class="helper-text">Fixed consultation window: 09:00 to 17:00.</p>
-                <div class="form-grid three-col">
+                <p class="helper-text">Regular day: 09:00-17:00. Regular night: 20:00-08:00. Visiting: 2-hour daytime slot within 09:00-17:00.</p>
+                <div class="form-grid two-col">
                     <input id="rDoctorId" placeholder="Doctor ID">
                     <input id="rRoomId" placeholder="Room ID">
+                    <select id="rShiftType" onchange="handleShiftTypeChange()">
+                        <option value="REGULAR_DAY">Regular Day</option>
+                        <option value="REGULAR_NIGHT">Regular Night</option>
+                        <option value="VISITING">Visiting Consultant</option>
+                    </select>
                     <input id="rDate" type="date">
+                    <select id="rVisitingStart" disabled>
+                        <option value="09:00">09:00 to 11:00</option>
+                        <option value="11:00">11:00 to 13:00</option>
+                        <option value="13:00">13:00 to 15:00</option>
+                        <option value="15:00">15:00 to 17:00</option>
+                    </select>
                 </div>
                 <button onclick="addRoster()">Create Roster</button>
                 <div id="rosterCreateResult" class="result-box"></div>
@@ -238,6 +249,16 @@ function logout() {
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div class="info-grid">
+                    <article class="info-card">
+                        <p class="eyebrow">Compliance</p>
+                        <div id="weeklyComplianceOut" class="result-box">Load a week to check roster compliance.</div>
+                    </article>
+                    <article class="info-card">
+                        <p class="eyebrow">Publication</p>
+                        <div id="weeklyPublicationOut" class="result-box">Load a week to see website upload and email notification status.</div>
+                    </article>
                 </div>
             </section>
         </div>
@@ -436,7 +457,26 @@ function assignNurse() {
 }
 
 function addRoster() {
-    fetch(`http://localhost:8008/roster/add?doctorId=${rDoctorId.value}&roomId=${rRoomId.value}&date=${rDate.value}&start=09:00&end=17:00`, {
+    let start = "09:00";
+    let end = "17:00";
+
+    if (rShiftType.value === "REGULAR_NIGHT") {
+        start = "20:00";
+        end = "08:00";
+    }
+
+    if (rShiftType.value === "VISITING") {
+        start = rVisitingStart.value;
+        const visitingEndMap = {
+            "09:00": "11:00",
+            "11:00": "13:00",
+            "13:00": "15:00",
+            "15:00": "17:00"
+        };
+        end = visitingEndMap[start];
+    }
+
+    fetch(`http://localhost:8008/roster/add?doctorId=${rDoctorId.value}&roomId=${rRoomId.value}&date=${rDate.value}&start=${start}&end=${end}`, {
         method: "POST"
     })
     .then(async r => {
@@ -463,6 +503,8 @@ function addRoster() {
 function loadWeeklyRoster() {
     if (!weeklyRosterStart.value) {
         weeklyRosterTableBody.innerHTML = `<tr><td colspan="7" class="empty-cell">Select a week to load the roster.</td></tr>`;
+        weeklyComplianceOut.innerHTML = "Load a week to check roster compliance.";
+        weeklyPublicationOut.innerHTML = "Load a week to see website upload and email notification status.";
         return;
     }
 
@@ -485,6 +527,48 @@ function loadWeeklyRoster() {
                 <td>${row.nurseName}${row.nurseId ? ` (ID ${row.nurseId})` : ""}</td>
             </tr>
         `).join("");
+        loadWeeklyCompliance();
+        loadWeeklyPublication();
+    });
+}
+
+function handleShiftTypeChange() {
+    rVisitingStart.disabled = rShiftType.value !== "VISITING";
+}
+
+function loadWeeklyCompliance() {
+    fetch(`http://localhost:8008/roster/week-compliance?startDate=${weeklyRosterStart.value}`)
+    .then(r => r.json())
+    .then(data => {
+        const issues = (data.issues || []).length
+            ? `<ul class="issue-list">${data.issues.map(issue => `<li>${issue}</li>`).join("")}</ul>`
+            : `<p>All configured roster rules are satisfied for this week.</p>`;
+
+        weeklyComplianceOut.innerHTML = `
+            <div class="status-row">
+                <span class="status-pill ${data.dayCoverageMet ? "status-ok" : "status-bad"}">Day Coverage: ${data.dayCoverageMet ? "OK" : "Missing"}</span>
+                <span class="status-pill ${data.nightCoverageMet ? "status-ok" : "status-bad"}">Night Coverage: ${data.nightCoverageMet ? "OK" : "Missing"}</span>
+                <span class="status-pill ${data.visitingRulesMet ? "status-ok" : "status-bad"}">Visiting Rules: ${data.visitingRulesMet ? "OK" : "Missing"}</span>
+            </div>
+            ${issues}
+        `;
+    });
+}
+
+function loadWeeklyPublication() {
+    fetch(`http://localhost:8008/roster/published/week?startDate=${weeklyRosterStart.value}`)
+    .then(r => r.json())
+    .then(data => {
+        const notifications = (data.doctorNotifications || []).length
+            ? `<ul class="issue-list">${data.doctorNotifications.map(note => `<li>${note}</li>`).join("")}</ul>`
+            : `<p>No doctor notifications generated for that week.</p>`;
+
+        weeklyPublicationOut.innerHTML = `
+            <p>Published At: ${data.publishedAt || "-"}</p>
+            <p>Snapshot File: ${data.publicationFile || "-"}</p>
+            <p>Roster Rows Published: ${data.rosterCount ?? 0}</p>
+            ${notifications}
+        `;
     });
 }
 
@@ -535,6 +619,7 @@ function loadReport() {
 
 loadDoctors();
 loadNurses();
+handleShiftTypeChange();
 </script>
 </body>
 </html>

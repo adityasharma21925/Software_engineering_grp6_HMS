@@ -1,5 +1,7 @@
 package com.gray.hospital.controller;
 
+import com.gray.hospital.controller.dto.PublishedRosterSummary;
+import com.gray.hospital.controller.dto.RosterComplianceStatus;
 import com.gray.hospital.controller.dto.WeeklyRosterRow;
 import com.gray.hospital.entity.Roster;
 import com.gray.hospital.service.RosterService;
@@ -69,5 +71,20 @@ public class RosterController {
             @RequestParam String startDate,
             @RequestParam Long doctorId){
         return rosterService.getWeeklyRosterViewForDoctor(LocalDate.parse(startDate), doctorId);
+    }
+
+    @GetMapping("/week-compliance")
+    public RosterComplianceStatus getWeeklyCompliance(@RequestParam String startDate) {
+        return rosterService.getWeeklyCompliance(LocalDate.parse(startDate));
+    }
+
+    @PostMapping("/publish-week")
+    public PublishedRosterSummary publishWeek(@RequestParam String date) {
+        return rosterService.publishWeek(LocalDate.parse(date));
+    }
+
+    @GetMapping("/published/week")
+    public PublishedRosterSummary getPublishedWeek(@RequestParam String startDate) {
+        return rosterService.publishWeek(LocalDate.parse(startDate));
     }
 }
