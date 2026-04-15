@@ -1,11 +1,14 @@
 package com.gray.hospital.controller;
 
+import com.gray.hospital.controller.dto.NurseViewRow;
+import com.gray.hospital.controller.dto.WeeklyRosterRow;
 import com.gray.hospital.entity.Doctor;
 import com.gray.hospital.entity.Nurse;
 import com.gray.hospital.entity.NurseDuty;
 import com.gray.hospital.repository.DoctorRepository;
 import com.gray.hospital.repository.NurseRepository;
 import com.gray.hospital.service.NurseService;
+import com.gray.hospital.service.RosterService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -23,13 +26,16 @@ public class NurseController {
     private final NurseRepository nurseRepository;
     private final DoctorRepository doctorRepository;
     private final NurseService nurseService;
+    private final RosterService rosterService;
 
     public NurseController(NurseRepository nurseRepository,
                            DoctorRepository doctorRepository,
-                           NurseService nurseService){
+                           NurseService nurseService,
+                           RosterService rosterService){
         this.nurseRepository = nurseRepository;
         this.doctorRepository = doctorRepository;
         this.nurseService = nurseService;
+        this.rosterService = rosterService;
     }
 
     // ✅ ADD NURSE
@@ -72,6 +78,21 @@ public class NurseController {
     @GetMapping("/all")
     public List<Nurse> all(){
         return nurseRepository.findAll();
+    }
+
+    @GetMapping("/all-view")
+    public List<NurseViewRow> allView(){
+        return nurseRepository.findAll().stream()
+                .map(this::toViewRow)
+                .toList();
+    }
+
+    @GetMapping("/{nurseId}/profile")
+    public NurseViewRow getProfile(@PathVariable Long nurseId){
+        Nurse nurse = nurseRepository.findById(nurseId)
+                .orElseThrow(() -> new RuntimeException("Nurse not found"));
+
+        return toViewRow(nurse);
     }
 
     @PutMapping("/make-head")
@@ -136,6 +157,36 @@ public class NurseController {
             @PathVariable Long nurseId,
             @RequestParam String startDate){
         return nurseService.getDutyForNurse(nurseId, LocalDate.parse(startDate));
+    }
+
+    @GetMapping("/{nurseId}/weekly-roster")
+    public List<WeeklyRosterRow> getWeeklyRosterForAssignedDoctor(
+            @PathVariable Long nurseId,
+            @RequestParam String startDate){
+        Nurse nurse = nurseRepository.findById(nurseId)
+                .orElseThrow(() -> new RuntimeException("Nurse not found"));
+
+        if (nurse.getDoctor() == null) {
+            return List.of();
+        }
+
+        return rosterService.getWeeklyRosterViewForDoctor(
+                LocalDate.parse(startDate),
+                nurse.getDoctor().getDoctorId()
+        );
+    }
+
+    private NurseViewRow toViewRow(Nurse nurse){
+        return new NurseViewRow(
+                nurse.getNurseId(),
+                nurse.getName(),
+                nurse.getEmail(),
+                nurse.getPhone(),
+                nurse.getRole(),
+                nurse.getSalary() != null ? nurse.getSalary().toString() : null,
+                nurse.getDoctor() != null ? nurse.getDoctor().getDoctorId() : null,
+                nurse.getDoctor() != null ? nurse.getDoctor().getName() : "Not Assigned"
+        );
     }
 
 }

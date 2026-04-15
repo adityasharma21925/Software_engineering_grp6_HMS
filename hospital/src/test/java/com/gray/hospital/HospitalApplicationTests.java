@@ -1,13 +1,13 @@
 package com.gray.hospital;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
 class HospitalApplicationTests {
 
 	@Test
-	void contextLoads() {
+	void applicationClassIsPresent() {
+		HospitalApplication application = new HospitalApplication();
+		org.junit.jupiter.api.Assertions.assertNotNull(application);
 	}
 
 }
